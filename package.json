@@ -1,0 +1,19 @@
+{
+  "name": "csbotcli",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/noah-witt/csBotCli.git"
+  },
+  "author": "Noah Witt <noah@noah-witt.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/noah-witt/csBotCli/issues"
+  },
+  "homepage": "https://github.com/noah-witt/csBotCli#readme"
+}
