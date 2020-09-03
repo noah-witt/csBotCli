@@ -87,7 +87,7 @@ async function removeEvent(){
             value: e._id,
         });
     });
-
+    if(eventSelections.length==0) return;
     const selection = await inquirer.prompt([{
         type: 'list',
         name: 'event',
@@ -166,6 +166,21 @@ async function enterEvent() {
     console.log('changes applied');
 }
 
+async function rank(){
+    let count = await inquirer.prompt([{
+        type: 'number',
+        name: 'num',
+        message: 'number of results to show',
+        default: 10 
+    }]);
+    if(count.count<0) count.count*=-1;
+    const responses = await db.getHighScores(count.num);
+    for(let i=0; i<responses.results.length; i++) {
+        const e = responses.results[i];
+        console.log(`${i+1}. ${e.name} <${e.email}> has ${e.score}`);
+    }
+}
+
 async function go() {
     while(true) {
         let actions = await inquirer.prompt([{
@@ -189,6 +204,10 @@ async function go() {
                     name: 'remove event',
                     value: 2
                 },
+                {
+                    name: 'rank',
+                    value: 3
+                },
             ],
         }]);
         if(actions.action==-1) break;
@@ -196,6 +215,7 @@ async function go() {
         if(actions.action==1) await inspectUser();
         if(actions.action==0) await enterEvent();
         if(actions.action==2) await removeEvent();
+        if(actions.action==3) await rank();
     }
     return;
 }
