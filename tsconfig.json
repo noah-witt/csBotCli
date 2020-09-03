@@ -11,6 +11,7 @@
     "lib": ["ES2018","ScriptHost", "ES2017", "ES2015", "ES2016"],
     "include": [
       "./src",
+      "./AugieCSDiscordBot/src/"
     ],
     "exclude": [
       "node_modules",
