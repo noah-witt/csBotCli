@@ -4,6 +4,7 @@ import * as inquirer from 'inquirer';
 import * as fuzzy from 'fuzzy';
 import * as moment from 'moment-timezone';
 import * as api from './api';
+import * as chalk from 'chalk';
 inquirer.registerPrompt('autocomplete', require('inquirer-autocomplete-prompt'));
 inquirer.registerPrompt('datetime', require('inquirer-datepicker-prompt'));
 
@@ -14,7 +15,11 @@ interface person {
 
 let peopleList: person[] = [];
 
-
+/**
+ * @returns a list that matches the input string.
+ * @param answersSoFar the previous answers printed.
+ * @param input the strings.
+ */
 async function getSearchUsers(answersSoFar, input: string){
     input = input || '';
     const fuzzyOut = fuzzy.filter<person>(input, peopleList, {extract: function(el) { return el.name; }});
@@ -33,24 +38,33 @@ interface matchObj {
         email: string
     }[];
 }
-
+/**
+ * @returns a string that represents the events.
+ * @param events the events to get a string for.
+ */
 function matchStr(events: matchObj[]){
     let result = "";
     events.forEach((e)=>{
-        result +=`${e.name}; ${e.points} points; ${moment(e.createdAt).toLocaleString()}\n`;
+        result +=`${chalk.green(e.name)}; ${chalk.blue(e.points)} points; ${moment(e.createdAt).toLocaleString()}\n`;
         const personArr = [];
         e.people.forEach((p) =>{
-            personArr.push(`${p.name} <${p.email}>`);
+            personArr.push(`${p.name} <${chalk.red(p.email)}>`);
         });
         result+=`\t with: ${personArr}\n`;
     });
     return result.substr(0, result.length-1);
 }
-
+/**
+ * prints the events.
+ * @param events the events to print
+ */
 function printMatch(events: matchObj[]){
     console.log(matchStr(events));
 }
 
+/**
+ * remove an event by selecting through user.
+ */
 async function removeEvent(){
     let person = await inquirer.prompt([{
         type:'autocomplete',
@@ -95,6 +109,9 @@ async function removeEvent(){
     console.log('done');
 }
 
+/**
+ * get data for a user.
+ */
 async function inspectUser(){
     let person = await inquirer.prompt([{
         type:'autocomplete',
@@ -105,10 +122,13 @@ async function inspectUser(){
     const result = await api.inspectUser(person.user);
     const pObj = result.person;
     const events = result.events;
-    console.log(`${pObj.name} <${pObj.email}>; points: ${pObj.points}`);
+    console.log(`${pObj.name} ${chalk.red(`<${pObj.email}>`)}; points: ${chalk.blue(pObj.points)}`);
     printMatch(events);
 }
 
+/**
+ * add an event.
+ */
 async function enterEvent() {
     const people: string[] = [];
     while(true) {
@@ -154,6 +174,9 @@ async function enterEvent() {
     console.log('changes applied');
 }
 
+/**
+ * prints the top scores.
+ */
 async function rank(){
     let count = await inquirer.prompt([{
         type: 'number',
@@ -165,54 +188,84 @@ async function rank(){
     const responses = await api.getRankList(count.num);
     for(let i=0; i<responses.length; i++) {
         const e = responses[i];
-        console.log(`${i+1}. ${e.name} <${e.email}> has ${e.score}`);
+        console.log(`${chalk.green(i+1)}. ${e.name} ${chalk.red(`<${e.email}>`)} has ${chalk.blue(e.score)}`);
     }
 }
 
+const mainMenuOptions = [
+    {
+        name: 'exit',
+        value: -1
+    },
+    {
+        name: 'enter score',
+        value: 0
+    },
+    {
+        name: 'inspect user',
+        value: 1
+    },
+    {
+        name: 'remove event',
+        value: 2
+    },
+    {
+        name: 'rank',
+        value: 3
+    },
+    {
+        name: 'generate a key pair',
+        value: 4
+    },
+];
+
+
+interface mainMenuOption {
+    name: string,
+    value: number
+}
+/**
+ * @returns the options that match.
+ * @param answersSoFar the previous answers given
+ * @param input the string entered
+ */
+async function getMainMenuItems(answersSoFar, input: string){
+    input = input || '';
+    const fuzzyOut = fuzzy.filter<mainMenuOption>(input, mainMenuOptions, {extract: function(el) { return el.name; }});
+    const results = fuzzyOut.map( function (el) {
+        return el.original;
+    });
+    return results;
+}
+
+/**
+ * primary loop for control.
+ */
 async function go() {
     while(true) {
         let actions = await inquirer.prompt([{
-            type: 'list',
+            type:'autocomplete',
             name: 'action',
-            message: 'What Action',
-            choices: [
-                {
-                    name: 'exit',
-                    value: -1
-                },
-                {
-                    name: 'enter score',
-                    value: 0
-                },
-                {
-                    name: 'inspect user',
-                    value: 1
-                },
-                {
-                    name: 'remove event',
-                    value: 2
-                },
-                {
-                    name: 'rank',
-                    value: 3
-                },
-                {
-                    name: 'generate a key pair',
-                    value: 4
-                },
-            ],
+            message: 'select action',
+            source: getMainMenuItems
         }]);
         if(actions.action==-1) break;
-        
-        if(actions.action==1) await inspectUser();
-        if(actions.action==0) await enterEvent();
-        if(actions.action==2) await removeEvent();
-        if(actions.action==3) await rank();
-        if(actions.action==4) await api.genPublicKey();
+        try {
+            if(actions.action==1) await inspectUser();
+            if(actions.action==0) await enterEvent();
+            if(actions.action==2) await removeEvent();
+            if(actions.action==3) await rank();
+            if(actions.action==4) await api.genPublicKey();
+        } catch (error) {
+            console.warn(chalk.red.bold('that action failed.'));
+        }
     }
     return;
 }
 
+/**
+ * initialize the system.
+ */
 async function init() {
     const result = await inquirer.prompt([{
         type: 'input',
@@ -228,11 +281,23 @@ async function init() {
     } catch (error) {
         console.log('problem initing');
         console.log('only keygen will work.');
-        await api.genPublicKey();
+        const gen = await inquirer.prompt([{
+            type:'confirm',
+            name: 'gen',
+            message: 'generate key?'
+        }]);
+        if(gen.gen) {
+            await api.genPublicKey();
+        } else {
+            console.log('Goodbye...');
+        }
         process.exit();
     }
 }
 
+/**
+ * init and then go.
+ */
 async function manage() {
     api.loadPrivateKey();
     try {

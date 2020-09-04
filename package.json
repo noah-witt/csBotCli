@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/noah-witt/csBotCli#readme",
   "dependencies": {
+    "@types/chalk": "^2.2.0",
     "@types/crypto-js": "^3.1.47",
     "@types/crypto-random-string": "^2.0.0",
     "@types/got": "^9.6.11",
@@ -25,6 +26,7 @@
     "@types/moment": "^2.13.0",
     "@types/mongoose": "^5.7.36",
     "@types/write": "^2.0.0",
+    "chalk": "^4.1.0",
     "crypto-js": "^4.0.0",
     "crypto-random-string": "^3.3.0",
     "dotenv": "^8.2.0",
@@ -46,7 +48,7 @@
   },
   "node_deb": {
     "entrypoints": {
-      "csScore": "./build/index.js"
+      "csScore": "node ./build/index.js"
     }
   }
 }

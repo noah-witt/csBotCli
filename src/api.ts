@@ -5,8 +5,14 @@ import * as inquirer from 'inquirer';
 import * as write from 'write';
 import * as fs from 'fs';
 import * as rString from 'crypto-random-string';
-
+/**
+ * the string of the private key.
+ */
 let privateKey: string;
+
+/**
+ * generates the public key part
+ */
 export async function genPublicKey(){
     const key = rString({length:100, type:'url-safe'});
     console.log(`private(private.key): ${key}`);
@@ -30,7 +36,10 @@ export async function genPublicKey(){
     }
     
 }
-
+/**
+ * @returns the object to be sent.
+ * @param content the body content
+ */
 export async function generateRequestObj<T>(content: T) {
     const result = {
         content,
@@ -47,6 +56,9 @@ export interface user {
     value: string
 }
 
+/**
+ * gets the list of users to init the system.
+ */
 export async function getUserList(): Promise<user[]>{
     //console.log(generateRequestObj(null));
     let result = await got.post(`${process.env.apiHost}/api/users`, {json: await generateRequestObj(null),responseType: 'json'});
@@ -55,11 +67,20 @@ export async function getUserList(): Promise<user[]>{
     return data;
 }
 
+/**
+ * adds an event.
+ * @param name the name of the event
+ * @param people the emails of the people.
+ * @param points the number of points
+ */
 export async function newAdjustment(name: string, people: string[], points: number): Promise<null> {
     let result = await got.post(`${process.env.apiHost}/api/adjustment`, {json: await generateRequestObj({name, people, points}),responseType: 'json'});
     return null;
 }
 
+/**
+ * represents the object from the server
+ */
 export interface userInspectionResult {
     person: {
         name: string;
@@ -77,7 +98,10 @@ export interface userInspectionResult {
         }[]
     }[];
 }
-
+/**
+ * @returns the user requested.
+ * @param email the email of the user
+ */
 export async function inspectUser(email: string): Promise<userInspectionResult> {
     let result = await got.post<userInspectionResult>(`${process.env.apiHost}/api/inspectUser`, {json: await generateRequestObj(email),responseType: 'json'});
     return result.body;
@@ -89,6 +113,10 @@ export interface rankOutput{
     score: number,
 }
 
+/**
+ * @returns the specified number of top scores.
+ * @param results the number of results you want.
+ */
 export async function getRankList(results: number): Promise<rankOutput[]> {
     let result = await got.post(`${process.env.apiHost}/api/rank`, {json: await generateRequestObj(results),responseType: 'json'});
     //@ts-expect-error
@@ -96,11 +124,18 @@ export async function getRankList(results: number): Promise<rankOutput[]> {
     return data;
 }
 
+/**
+ * removes the event by the specified ID.
+ * @param id the event id to remove
+ */
 export async function remove(id: string): Promise<null> {
     let result = await got.post(`${process.env.apiHost}/api/remove`, {json: await generateRequestObj(id),responseType: 'json'});
     return null;
 }
 
+/**
+ * load a private key from private.key.
+ */
 export function loadPrivateKey(){
     try {
         privateKey = fs.readFileSync('private.key').toString();
