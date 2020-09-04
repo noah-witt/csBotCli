@@ -1,9 +1,6 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 import * as inquirer from 'inquirer';
-import { SSHConnection } from 'node-ssh-forward'
-import * as db from './db';
-import * as models from './models';
 import * as fuzzy from 'fuzzy';
 import * as moment from 'moment-timezone';
 import * as api from './api';
@@ -17,22 +14,6 @@ interface person {
 
 let peopleList: person[] = [];
 
-async function sshConnect() {
-    const sshConnection = new SSHConnection({
-        endHost: process.env.target,
-        endPort: Number.parseInt(process.env.targetPort),
-        username: process.env.targetUser,
-        privateKey: process.env.privateKey,
-        skipAutoPrivateKey: process.env.skipAutoPrivateKey=='true',
-        noReadline: true
-    });
-    await sshConnection.forward({
-        fromPort: 27017,
-        toPort: 27017,
-        toHost: 'localhost'
-    });
-    return sshConnection;
-}
 
 async function getSearchUsers(answersSoFar, input: string){
     input = input || '';
@@ -43,13 +24,22 @@ async function getSearchUsers(answersSoFar, input: string){
     return results;
 }
 
-function matchStr(events: models.MatchDoc[]){
+interface matchObj {
+    points: number;
+    createdAt: number;
+    name: string;
+    people: {
+        name: string,
+        email: string
+    }[];
+}
+
+function matchStr(events: matchObj[]){
     let result = "";
     events.forEach((e)=>{
         result +=`${e.name}; ${e.points} points; ${moment(e.createdAt).toLocaleString()}\n`;
         const personArr = [];
         e.people.forEach((p) =>{
-            //@ts-expect-error
             personArr.push(`${p.name} <${p.email}>`);
         });
         result+=`\t with: ${personArr}\n`;
@@ -57,7 +47,7 @@ function matchStr(events: models.MatchDoc[]){
     return result.substr(0, result.length-1);
 }
 
-function printMatch(events: models.MatchDoc[]){
+function printMatch(events: matchObj[]){
     console.log(matchStr(events));
 }
 
@@ -68,10 +58,9 @@ async function removeEvent(){
         message: 'select person',
         source: getSearchUsers
     }]);
-    const pObjs = await models.Person.find({email: person.user}).exec();
-    if(pObjs.length!=1) throw 'db error';
-    const pObj = pObjs[0];
-    const events = await models.Match.find({people: pObj._id}).populate('people').sort({'createdAt': -1}).exec();
+    const result = await api.inspectUser(person.user);
+    const pObj = result.person;
+    const events = result.events;
     console.log(`${pObj.name} <${pObj.email}>; points: ${pObj.points}`);
     const eventSelections = [];
     events.forEach((e)=>{
@@ -79,7 +68,6 @@ async function removeEvent(){
         result +=`${e.name}; ${e.points} points; ${moment(e.createdAt).toLocaleString()}\n`;
         const personArr = [];
         e.people.forEach((p) =>{
-            //@ts-expect-error
             personArr.push(`${p.name} <${p.email}>`);
         });
         result+=`\t with: ${personArr}\n`;
@@ -103,7 +91,7 @@ async function removeEvent(){
     });
     if(!cont.confirm) return;
     console.log('processing...');
-    db.removeByMatchId(selection.event);
+    await api.remove(selection.event);
     console.log('done');
 }
 
@@ -114,10 +102,9 @@ async function inspectUser(){
         message: 'select person',
         source: getSearchUsers
     }]);
-    const pObjs = await models.Person.find({email: person.user}).exec();
-    if(pObjs.length!=1) throw 'db error';
-    const pObj = pObjs[0];
-    const events = await models.Match.find({people: pObj._id}).populate('people').exec();
+    const result = await api.inspectUser(person.user);
+    const pObj = result.person;
+    const events = result.events;
     console.log(`${pObj.name} <${pObj.email}>; points: ${pObj.points}`);
     printMatch(events);
 }
@@ -163,7 +150,7 @@ async function enterEvent() {
     }]);
     if(!confirm.confirm) return;
     console.log('processing...');
-    await db.newAdjustment(numAndName.name, people, numAndName.points);
+    await api.newAdjustment(numAndName.name, people, numAndName.points);
     console.log('changes applied');
 }
 
@@ -174,10 +161,10 @@ async function rank(){
         message: 'number of results to show',
         default: 10 
     }]);
-    if(count.count<0) count.count*=-1;
-    const responses = await db.getHighScores(count.num);
-    for(let i=0; i<responses.results.length; i++) {
-        const e = responses.results[i];
+    if(count.num<0) count.num*=-1;
+    const responses = await api.getRankList(count.num);
+    for(let i=0; i<responses.length; i++) {
+        const e = responses[i];
         console.log(`${i+1}. ${e.name} <${e.email}> has ${e.score}`);
     }
 }
@@ -227,24 +214,26 @@ async function go() {
 }
 
 async function init() {
-    console.log('loading users...');
-    peopleList = await api.getUserList();
-    console.log('done loading users.');
+    try {
+        console.log('loading users...');
+        peopleList = await api.getUserList();
+        console.log('done loading users.');
+    } catch (error) {
+        console.log('problem initing');
+        console.log('only keygen will work.');
+        await api.genPublicKey();
+        process.exit();
+    }
 }
 
 async function manage() {
-    let sshConnection;
     api.loadPrivateKey();
-    if(process.env.disableIntegratedSSH!=='true') sshConnection = await sshConnect();
     try {
-        await db.init();
         await init();
         await go();
     } catch (error) {
         console.log(error);
     }
-    if(process.env.disableIntegratedSSH!=='true') await sshConnection.shutdown();
-    await db.shutdown();
     process.exit();
 }
 manage();
