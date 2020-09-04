@@ -214,6 +214,13 @@ async function go() {
 }
 
 async function init() {
+    const result = await inquirer.prompt([{
+        type: 'input',
+        name: 'host',
+        message: 'enter server host:',
+        default: process.env.apiHost
+    }]);
+    process.env.apiHost = result.host;
     try {
         console.log('loading users...');
         peopleList = await api.getUserList();

@@ -1,5 +1,4 @@
 import * as crypto from 'crypto-js';
-import * as eccrypto from 'eccrypto';
 import * as moment from 'moment-timezone';
 import got from 'got';
 import * as inquirer from 'inquirer';
