@@ -6,6 +6,7 @@ import * as db from './db';
 import * as models from './models';
 import * as fuzzy from 'fuzzy';
 import * as moment from 'moment-timezone';
+import * as api from './api';
 inquirer.registerPrompt('autocomplete', require('inquirer-autocomplete-prompt'));
 inquirer.registerPrompt('datetime', require('inquirer-datepicker-prompt'));
 
@@ -14,7 +15,7 @@ interface person {
     value: string
 }
 
-const peopleList: person[] = [];
+let peopleList: person[] = [];
 
 async function sshConnect() {
     const sshConnection = new SSHConnection({
@@ -208,6 +209,10 @@ async function go() {
                     name: 'rank',
                     value: 3
                 },
+                {
+                    name: 'generate a key pair',
+                    value: 4
+                },
             ],
         }]);
         if(actions.action==-1) break;
@@ -216,25 +221,20 @@ async function go() {
         if(actions.action==0) await enterEvent();
         if(actions.action==2) await removeEvent();
         if(actions.action==3) await rank();
+        if(actions.action==4) await api.genPublicKey();
     }
     return;
 }
 
 async function init() {
     console.log('loading users...');
-    const temp = await models.Person.find({}).sort('email').exec();
-    if(temp.length ==0) throw 'db error';
-    if(typeof temp[0].email == 'undefined') throw 'db error';
-    for(let i=0; i< temp.length; i++) {
-        const target = temp[i];
-        //@ts-ignore
-        peopleList.push({name: `${target.name} <${target.email}>`, value: target.email});
-    }
+    peopleList = await api.getUserList();
     console.log('done loading users.');
 }
 
 async function manage() {
     let sshConnection;
+    api.loadPrivateKey();
     if(process.env.disableIntegratedSSH!=='true') sshConnection = await sshConnect();
     try {
         await db.init();

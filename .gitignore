@@ -107,3 +107,4 @@ build/
 
 result.json
 ssh.sh
+*.key
