@@ -5,7 +5,8 @@
   "main": "build/index.js",
   "scripts": {
     "start": "node build/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc && pkg --out-path ./dist/ --targets latest-linux-x64,latest-windows-x64,latest-macos-x64 ./build/index.js"
   },
   "repository": {
     "type": "git",
@@ -50,5 +51,8 @@
     "entrypoints": {
       "csScore": "node ./build/index.js"
     }
+  },
+  "devDependencies": {
+    "pkg": "^4.4.9"
   }
 }
